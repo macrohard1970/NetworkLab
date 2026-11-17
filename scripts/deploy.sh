@@ -1,59 +1,40 @@
-#!/bin/bash
-# Lab deploy/destroy helpers
+#!/usr/bin/env bash
+# NetworkLab deploy/destroy helpers.
+#
 # Usage:
-#   ./scripts/deploy.sh        — deploy the full lab
-#   ./scripts/deploy.sh destroy — tear down the lab
-#   ./scripts/deploy.sh status  — show running containers
+#   scripts/deploy.sh [deploy]   lab + Prometheus/Grafana
+#   scripts/deploy.sh destroy    lab + all monitoring containers
+#   scripts/deploy.sh status
+#
+# Extra monitoring: MON_PROFILES="batfish dns" scripts/deploy.sh deploy
 
-set -e
+set -euo pipefail
 
 LAB_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TOPO="${LAB_DIR}/topology.clab.yml"
-MONITORING_DIR="${LAB_DIR}/monitoring"
+
+compose() {
+  local profiles=()
+  for p in ${MON_PROFILES:-}; do profiles+=(--profile "$p"); done
+  (cd "${LAB_DIR}/monitoring" && docker compose "${profiles[@]}" "$@")
+}
 
 case "${1:-deploy}" in
-
   deploy)
-    echo "=== Deploying network lab ==="
-    containerlab deploy -t "$TOPO"
-    echo ""
-    echo "=== Starting monitoring stack ==="
-    # Create external networks if they don't exist
-    docker network create clab-netlab-services --subnet 10.20.0.0/24 2>/dev/null || true
-    docker network create clab-netlab-mgmt 2>/dev/null || true
-    cd "$MONITORING_DIR"
-    docker compose up -d
-    echo ""
-    echo "=== Lab deployed ==="
-    echo "  Grafana:     http://localhost:3000 (admin/admin)"
-    echo "  Prometheus:  http://localhost:9090"
-    echo "  Suzieq API:  http://localhost:8000"
-    echo "  Batfish:     http://localhost:9000"
-    echo ""
-    containerlab inspect -t "$TOPO"
+    [[ -x "${LAB_DIR}/bin/frr_exporter" ]] || echo "note: run scripts/fetch-frr-exporter.sh for FRR metrics"
+    # Containerlab creates clab-netlab-mgmt (10.255.255.0/24) itself.
+    sudo containerlab deploy -t "$TOPO" --reconfigure
+    compose up -d
+    echo "Grafana http://localhost:3000 (admin/admin)  Prometheus http://localhost:9090"
+    sudo containerlab inspect -t "$TOPO"
     ;;
-
   destroy)
-    echo "=== Stopping monitoring stack ==="
-    cd "$MONITORING_DIR"
-    docker compose down
-    echo ""
-    echo "=== Destroying network lab ==="
-    containerlab destroy -t "$TOPO" --cleanup
-    echo "=== Lab destroyed ==="
+    MON_PROFILES="suzieq batfish dns" compose down || true
+    sudo containerlab destroy -t "$TOPO" --cleanup
     ;;
-
   status)
-    echo "=== Network lab status ==="
-    containerlab inspect -t "$TOPO"
-    echo ""
-    echo "=== Monitoring containers ==="
-    cd "$MONITORING_DIR"
-    docker compose ps
+    sudo containerlab inspect -t "$TOPO" || true
+    MON_PROFILES="suzieq batfish dns" compose ps
     ;;
-
-  *)
-    echo "Usage: $0 {deploy|destroy|status}"
-    exit 1
-    ;;
+  *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

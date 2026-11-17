@@ -1,0 +1,25 @@
+# SuzieQ poller inventory (SuzieQ >= 0.16 format).
+# OPTIONAL: the FRR image has no SSH server. See monitoring/README.md before
+# enabling the 'suzieq' compose profile.
+sources:
+- name: netlab-routers
+  hosts:
+  - url: ssh://10.255.255.11
+  - url: ssh://10.255.255.12
+  - url: ssh://10.255.255.21
+  - url: ssh://10.255.255.22
+  - url: ssh://10.255.255.23
+  - url: ssh://10.255.255.24
+devices:
+- name: frr-nodes
+  transport: ssh
+  ignore-known-hosts: true
+auths:
+- name: lab-root
+  username: root
+  keyfile: /home/suzieq/.ssh/id_ed25519
+namespaces:
+- name: netlab
+  source: netlab-routers
+  device: frr-nodes
+  auth: lab-root

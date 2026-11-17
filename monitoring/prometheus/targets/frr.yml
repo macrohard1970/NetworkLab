@@ -1,0 +1,13 @@
+# frr_exporter targets (one per FRR node, mgmt IP :9342)
+- targets: ['10.255.255.11:9342']
+  labels: {device: spine1, role: spine}
+- targets: ['10.255.255.12:9342']
+  labels: {device: spine2, role: spine}
+- targets: ['10.255.255.21:9342']
+  labels: {device: leaf1, role: leaf}
+- targets: ['10.255.255.22:9342']
+  labels: {device: leaf2, role: leaf}
+- targets: ['10.255.255.23:9342']
+  labels: {device: leaf3, role: leaf}
+- targets: ['10.255.255.24:9342']
+  labels: {device: leaf4, role: leaf}
