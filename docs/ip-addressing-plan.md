@@ -4,9 +4,9 @@
 
 | Network | Subnet | Mask | Purpose |
 |---------|--------|------|---------|
-| Management | 10.255.255.0/24 | 255.255.255.0 | Out-of-band mgmt (Containerlab clab-mgmt network) |
+| Management | 10.255.255.0/24 | 255.255.255.0 | Out-of-band mgmt (Containerlab network `clab-netlab-mgmt`) |
 | Loopbacks | 10.255.0.0/24 | 255.255.255.0 | Router IDs, BGP update-source, services reachability |
-| Underlay P2P | 10.0.0.0/24 | /31 per link | Spine-leaf point-to-point interconnects |
+| Underlay P2P | 10.99.0.0/24 | /31 per link | Spine-leaf point-to-point interconnects |
 | Host subnets | 10.10.0.0/16 | /24 per leaf | Endpoint connectivity |
 | Services | 10.20.0.0/24 | 255.255.255.0 | Monitoring & DNS containers |
 
@@ -14,7 +14,7 @@
 
 ## 1. Management Network — 10.255.255.0/24
 
-Containerlab creates a `clab-netlab-mgmt` bridge network. Every container gets a static management IP for SSH, Ansible, and telemetry access.
+Containerlab creates a `clab-netlab-mgmt` bridge network. Every container gets a static management IP. Ansible uses `docker exec` (container names `clab-netlab-<node>`); Prometheus scrapes frr_exporter on each router at `<mgmt-ip>:9342`.
 
 | Device | Management IP | Notes |
 |--------|---------------|-------|
@@ -24,19 +24,18 @@ Containerlab creates a `clab-netlab-mgmt` bridge network. Every container gets a
 | leaf2 | 10.255.255.22 | FRR mgmt interface |
 | leaf3 | 10.255.255.23 | FRR mgmt interface |
 | leaf4 | 10.255.255.24 | FRR mgmt interface |
-| fw1 | 10.255.255.254 | VyOS firewall mgmt |
 | host-a | 10.255.255.31 | Alpine host mgmt |
 | host-b | 10.255.255.32 | Alpine host mgmt |
 | host-c | 10.255.255.33 | Alpine host mgmt |
 | host-d | 10.255.255.34 | Alpine host mgmt |
-| prometheus | 10.255.255.41 | Monitoring |
-| grafana | 10.255.255.42 | Monitoring |
-| suzieq | 10.255.255.43 | Monitoring |
-| batfish | 10.255.255.44 | Monitoring |
-| gnmic | 10.255.255.45 | Monitoring |
-| dnsmasq | 10.255.255.46 | DNS/DHCP |
+| netlab-prometheus | 10.255.255.41 | Monitoring (default) |
+| netlab-grafana | 10.255.255.42 | Monitoring (default) |
+| netlab-suzieq | 10.255.255.43 | Optional (`--profile suzieq`) |
+| (free) | 10.255.255.44 | Batfish is on the services network only |
+| (free) | 10.255.255.45 | Was gNMIc |
+| netlab-dnsmasq | 10.255.255.46 | Optional DNS (`--profile dns`) |
 
-**Gateway:** 10.255.255.1 (clab bridge interface — host)
+**Gateway:** 10.255.255.1 (Docker bridge on the host)
 
 ---
 
@@ -60,21 +59,23 @@ Reserved for future use: 10.255.0.20–10.255.0.254
 
 ---
 
-## 3. Underlay P2P Links — 10.0.0.0/24 (using /31 per link)
+## 3. Underlay P2P Links — 10.99.0.0/24 (using /31 per link)
+
+Moved from 10.0.0.0/24, which overlaps the common VPC range 10.0.0.0/16 (including this lab's own EC2 VPC).
 
 Each spine-to-leaf connection uses a /31 (point-to-point, no broadcast/network waste).
 
 | Link | Spine side | Leaf side | Subnet |
 |------|-----------|-----------|--------|
-| spine1 ↔ leaf1 | 10.0.0.0/31 | 10.0.0.1/31 | 10.0.0.0/31 |
-| spine1 ↔ leaf2 | 10.0.0.2/31 | 10.0.0.3/31 | 10.0.0.2/31 |
-| spine1 ↔ leaf3 | 10.0.0.4/31 | 10.0.0.5/31 | 10.0.0.4/31 |
-| spine1 ↔ leaf4 | 10.0.0.6/31 | 10.0.0.7/31 | 10.0.0.6/31 |
-| spine2 ↔ leaf1 | 10.0.0.8/31 | 10.0.0.9/31 | 10.0.0.8/31 |
-| spine2 ↔ leaf2 | 10.0.0.10/31 | 10.0.0.11/31 | 10.0.0.10/31 |
-| spine2 ↔ leaf3 | 10.0.0.12/31 | 10.0.0.13/31 | 10.0.0.12/31 |
-| spine2 ↔ leaf4 | 10.0.0.14/31 | 10.0.0.15/31 | 10.0.0.14/31 |
-| spine1 ↔ spine2 | 10.0.0.16/31 | 10.0.0.17/31 | 10.0.0.16/31 |
+| spine1 ↔ leaf1 | 10.99.0.0/31 | 10.99.0.1/31 | 10.99.0.0/31 |
+| spine1 ↔ leaf2 | 10.99.0.2/31 | 10.99.0.3/31 | 10.99.0.2/31 |
+| spine1 ↔ leaf3 | 10.99.0.4/31 | 10.99.0.5/31 | 10.99.0.4/31 |
+| spine1 ↔ leaf4 | 10.99.0.6/31 | 10.99.0.7/31 | 10.99.0.6/31 |
+| spine2 ↔ leaf1 | 10.99.0.8/31 | 10.99.0.9/31 | 10.99.0.8/31 |
+| spine2 ↔ leaf2 | 10.99.0.10/31 | 10.99.0.11/31 | 10.99.0.10/31 |
+| spine2 ↔ leaf3 | 10.99.0.12/31 | 10.99.0.13/31 | 10.99.0.12/31 |
+| spine2 ↔ leaf4 | 10.99.0.14/31 | 10.99.0.15/31 | 10.99.0.14/31 |
+| spine1 ↔ spine2 | 10.99.0.16/31 | 10.99.0.17/31 | 10.99.0.16/31 |
 
 **Interface naming convention:**
 - Spines: `eth1`–`eth5` (eth0 = mgmt)
@@ -84,32 +85,32 @@ Each spine-to-leaf connection uses a /31 (point-to-point, no broadcast/network w
 
 | Interface | Connected to | IP |
 |-----------|-------------|-----|
-| spine1 eth1 | leaf1 | 10.0.0.0/31 |
-| spine1 eth2 | leaf2 | 10.0.0.2/31 |
-| spine1 eth3 | leaf3 | 10.0.0.4/31 |
-| spine1 eth4 | leaf4 | 10.0.0.6/31 |
-| spine1 eth5 | spine2 | 10.0.0.16/31 |
-| spine2 eth1 | leaf1 | 10.0.0.8/31 |
-| spine2 eth2 | leaf2 | 10.0.0.10/31 |
-| spine2 eth3 | leaf3 | 10.0.0.12/31 |
-| spine2 eth4 | leaf4 | 10.0.0.14/31 |
-| spine2 eth5 | spine1 | 10.0.0.17/31 |
+| spine1 eth1 | leaf1 | 10.99.0.0/31 |
+| spine1 eth2 | leaf2 | 10.99.0.2/31 |
+| spine1 eth3 | leaf3 | 10.99.0.4/31 |
+| spine1 eth4 | leaf4 | 10.99.0.6/31 |
+| spine1 eth5 | spine2 | 10.99.0.16/31 |
+| spine2 eth1 | leaf1 | 10.99.0.8/31 |
+| spine2 eth2 | leaf2 | 10.99.0.10/31 |
+| spine2 eth3 | leaf3 | 10.99.0.12/31 |
+| spine2 eth4 | leaf4 | 10.99.0.14/31 |
+| spine2 eth5 | spine1 | 10.99.0.17/31 |
 
 ### Leaf interface map
 
 | Interface | Connected to | IP |
 |-----------|-------------|-----|
-| leaf1 eth1 | spine1 | 10.0.0.1/31 |
-| leaf1 eth2 | spine2 | 10.0.0.9/31 |
-| leaf2 eth1 | spine1 | 10.0.0.3/31 |
-| leaf2 eth2 | spine2 | 10.0.0.11/31 |
-| leaf3 eth1 | spine1 | 10.0.0.5/31 |
-| leaf3 eth2 | spine2 | 10.0.0.13/31 |
-| leaf4 eth1 | spine1 | 10.0.0.7/31 |
-| leaf4 eth2 | spine2 | 10.0.0.15/31 |
+| leaf1 eth1 | spine1 | 10.99.0.1/31 |
+| leaf1 eth2 | spine2 | 10.99.0.9/31 |
+| leaf2 eth1 | spine1 | 10.99.0.3/31 |
+| leaf2 eth2 | spine2 | 10.99.0.11/31 |
+| leaf3 eth1 | spine1 | 10.99.0.5/31 |
+| leaf3 eth2 | spine2 | 10.99.0.13/31 |
+| leaf4 eth1 | spine1 | 10.99.0.7/31 |
+| leaf4 eth2 | spine2 | 10.99.0.15/31 |
 
-**Used:** 10.0.0.0–10.0.0.17 (18 IPs, 9 /31 subnets)
-**Remaining:** 10.0.0.18–10.0.0.255 (available for expansion)
+**Used:** 10.99.0.0–10.99.0.17 (18 IPs, 9 /31 subnets)
+**Remaining:** 10.99.0.18–10.99.0.255 (available for expansion)
 
 ---
 
@@ -117,8 +118,8 @@ Each spine-to-leaf connection uses a /31 (point-to-point, no broadcast/network w
 
 Each leaf has a /24 for its connected hosts. The leaf's `eth3` interface is the gateway for its host.
 
-| Leaf | Subnet | Gateway (eth3) | Host IP | VLAN ID |
-|------|--------|----------------|---------|---------|
+| Leaf | Subnet | Gateway (eth3) | Host IP |
+|------|--------|----------------|---------|
 | leaf1 | 10.10.1.0/24 | 10.10.1.254 | host-a: 10.10.1.1 | 10 |
 | leaf2 | 10.10.2.0/24 | 10.10.2.254 | host-b: 10.10.2.1 | 20 |
 | leaf3 | 10.10.3.0/24 | 10.10.3.254 | host-c: 10.10.3.1 | 30 |
@@ -141,16 +142,16 @@ Each leaf has a /24 for its connected hosts. The leaf's `eth3` interface is the 
 
 ## 5. Services Network — 10.20.0.0/24
 
-Monitoring and DNS containers run on this network. This is a separate Docker network (`clab-netlab-services`) to keep them off the data plane.
+Monitoring and DNS containers run on this network. Docker compose creates it as `netlab-services`, separate from the data plane. Prometheus and Grafana run by default; the others are opt-in compose profiles. Host ports bind to 127.0.0.1.
 
 | Service | IP | Port(s) | Notes |
 |---------|----|---------|-------|
-| prometheus | 10.20.0.10 | 9090 | Metrics scraper |
-| grafana | 10.20.0.11 | 3000 | Dashboard UI |
-| suzieq | 10.20.0.12 | 8000 (API) | Network observability |
-| batfish | 10.20.0.13 | 9996 (API), 9000 (UI) | Config analysis |
-| gnmic | 10.20.0.14 | 7890 (gNMI), 9804 (metrics) | Telemetry collector |
-| dnsmasq | 10.20.0.15 | 53/tcp+udp | DNS resolver |
+| netlab-prometheus | 10.20.0.10 | 9090 | Scrapes frr_exporter :9342 on every router |
+| netlab-grafana | 10.20.0.11 | 3000 | Dashboard UI |
+| netlab-suzieq | 10.20.0.12 | — | Optional poller |
+| netlab-batfish | 10.20.0.13 | 9996 (pybatfish API) | Optional config analysis |
+| (free) | 10.20.0.14 | — | Was gNMIc |
+| netlab-dnsmasq | 10.20.0.15 | 53 (not published on the host) | Optional DNS |
 
 **Remaining:** 10.20.0.16–10.20.0.254 for future services.
 
@@ -166,9 +167,10 @@ Monitoring and DNS containers run on this network. This is a separate Docker net
 | 65103 | leaf3 | eBGP | Connects to spine1 + spine2, advertises 10.10.3.0/24 |
 | 65104 | leaf4 | eBGP | Connects to spine1 + spine2, advertises 10.10.4.0/24 |
 
-- **Spines (AS 65001):** iBGP between spine1 and spine2 over the direct link (10.0.0.16/31). Full-mesh iBGP. OSPF area 0 underlay.
+- **Spines (AS 65001):** iBGP between spine1 and spine2 over the direct link (10.99.0.16/31). OSPF area 0 underlay.
 - **Leaves (AS 6510X):** eBGP to both spines using loopback as update-source. Advertise connected host /24s.
-- **Route reflectors:** Spines act as route reflectors for leaves (client role).
+- **No route reflection:** spine-leaf sessions are eBGP, so spines re-advertise each leaf's /24 to the other leaves without route reflection.
+- **BFD:** every BGP session uses BFD profile `FABRIC` (300 ms × 3 = 900 ms detection).
 
 ---
 
@@ -177,7 +179,7 @@ Monitoring and DNS containers run on this network. This is a separate Docker net
 - **Area:** 0 (backbone)
 - **Protocol:** OSPFv2 for IPv4
 - **Participating:** All spine and leaf routers
-- **Advertised:** P2P link subnets and loopbacks
+- **Advertised:** P2P link subnets and loopbacks (`ip ospf passive` on `lo`)
 - **Router ID:** Each device's loopback IP
 - **Network type:** point-to-point on /31 links
 
@@ -188,7 +190,7 @@ Monitoring and DNS containers run on this network. This is a separate Docker net
 ```
 10.255.255.0/24  ─── Management (OOB)     [10.255.255.11–10.255.255.46]
 10.255.0.0/24    ─── Loopbacks            [10.255.0.1–10.255.0.14]
-10.0.0.0/24      ─── Underlay P2P /31s    [10.0.0.0–10.0.0.17]
+10.99.0.0/24      ─── Underlay P2P /31s    [10.99.0.0–10.99.0.17]
 10.10.0.0/16     ─── Host subnets /24s    [10.10.1.0–10.10.4.0]
 10.20.0.0/24     ─── Services network     [10.20.0.10–10.20.0.15]
 ```

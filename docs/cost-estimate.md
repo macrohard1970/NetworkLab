@@ -23,13 +23,12 @@ Every component in this lab is free and open-source:
 | Containerlab | BSD-3-Clause | Free |
 | FRRouting (FRR) | GPL-2.0 | Free |
 | Alpine Linux | MIT | Free |
-| VyOS | GPLv2 (free rolling release) | Free |
 | Ansible | GPL-3.0 | Free |
 | Prometheus | Apache-2.0 | Free |
 | Grafana (OSS edition) | AGPL-3.0 | Free |
 | Suzieq | Apache-2.0 | Free |
 | Batfish | Apache-2.0 | Free |
-| gNMIc | BSD-3-Clause | Free |
+| frr_exporter | MIT | Free |
 | dnsmasq | GPL-2.0 | Free |
 | Docker Engine | Apache-2.0 | Free |
 
@@ -77,7 +76,7 @@ If you deploy on AWS EC2 (e.g., controlled from CloudShell), here are the costs:
 | c5.2xlarge | 8 | 16 GB | $0.3400 | $248.20 |
 
 **t3.xlarge** is the minimum that meets our 4 vCPU / 16 GB spec.
-**t3.2xlarge** is recommended for the full monitoring stack.
+**t3.2xlarge** is only needed if you enable every optional monitoring profile (SuzieQ, Batfish); the default stack is Prometheus + Grafana.
 
 ### Spot Pricing (same region, current)
 
@@ -197,14 +196,20 @@ aws ec2 run-instances \
 
 # 2. SSH in and install prerequisites
 ssh -i my-key.pem ec2-user@<instance-ip>
-sudo yum install -y docker
+sudo dnf install -y docker git
 sudo systemctl enable --now docker
+sudo usermod -aG docker $USER && newgrp docker
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+  https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 bash -c "$(curl -sL https://get.containerlab.dev)"
 
 # 3. Clone your lab repo and deploy
-git clone <your-repo> networking-lab
-cd networking-lab
-sudo containerlab deploy -t topology.clab.yml
+git clone https://github.com/macrohard80/NetworkLab.git
+cd NetworkLab
+scripts/fetch-frr-exporter.sh   # optional metrics
+scripts/deploy.sh               # lab + Prometheus/Grafana
 ```
 
 ---
